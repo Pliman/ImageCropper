@@ -1,6 +1,7 @@
 /**
- * ImageCropper by Flashlizi, Copyright (c) 2011 RIAidea.com
- * Homepage: http://www.riaidea.com/blog/
+ * ImageCropper original by Flashlizi, modified by Pliman, Copyright (c) 2011 RIAidea.com
+ * Original homepage: http://www.riaidea.com/blog/
+ * New homepage: https://github.com/Pliman/ImageCropper
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -58,23 +59,29 @@
 		this.cropViewHeight = cropHeight;
 
 		this.dragSize = 7;
-		this.dragColor = "#f00";
-		this.dragBoxConf = {
+		this.dragColor = "#666";
+		this.resizingDragger = null;
+		this.minLength = 10;
+		this.draggers = {
 			upperLeft:{
 				dragLeft: 0,
-				dragTop: 0
+				dragTop: 0,
+				inDragger: false
 			},
 			upperRight:{
 				dragLeft: 0,
-				dragTop: 0
+				dragTop: 0,
+				inDragger: false
 			},
 			bottomLeft:{
 				dragLeft: 0,
-				dragTop: 0
+				dragTop: 0,
+				inDragger: false
 			},
 			bottomRight:{
 				dragLeft: 0,
-				dragTop: 0
+				dragTop: 0,
+				inDragger: false
 			}
 		};
 
@@ -174,17 +181,17 @@
 	}
 
 	ImageCropper.prototype._calcDragCordin = function() {
-		this.dragBoxConf.upperLeft.dragLeft = this.cropLeft - this.dragSize/2;
-		this.dragBoxConf.upperLeft.dragTop = this.cropTop - this.dragSize/2;
+		this.draggers.upperLeft.dragLeft = this.cropLeft - this.dragSize/2;
+		this.draggers.upperLeft.dragTop = this.cropTop - this.dragSize/2;
 
-		this.dragBoxConf.upperRight.dragLeft = this.cropLeft + this.cropViewWidth - this.dragSize/2;
-		this.dragBoxConf.upperRight.dragTop = this.cropTop - this.dragSize/2;
+		this.draggers.upperRight.dragLeft = this.cropLeft + this.cropViewWidth - this.dragSize/2;
+		this.draggers.upperRight.dragTop = this.cropTop - this.dragSize/2;
 
-		this.dragBoxConf.bottomLeft.dragLeft = this.cropLeft - this.dragSize/2;
-		this.dragBoxConf.bottomLeft.dragTop = this.cropTop + this.cropViewHeight - this.dragSize/2;
+		this.draggers.bottomLeft.dragLeft = this.cropLeft - this.dragSize/2;
+		this.draggers.bottomLeft.dragTop = this.cropTop + this.cropViewHeight - this.dragSize/2;
 
-		this.dragBoxConf.bottomRight.dragLeft = this.cropLeft + this.cropViewWidth - this.dragSize/2;
-		this.dragBoxConf.bottomRight.dragTop = this.cropTop + this.cropViewHeight - this.dragSize/2;
+		this.draggers.bottomRight.dragLeft = this.cropLeft + this.cropViewWidth - this.dragSize/2;
+		this.draggers.bottomRight.dragTop = this.cropTop + this.cropViewHeight - this.dragSize/2;
 	}
 
 	ImageCropper.prototype._mouseHandler = function(e)
@@ -195,7 +202,7 @@
 			this.mouseX = e.pageX - clientRect.left;
 			this.mouseY = e.pageY - clientRect.top;
 			this._checkMouseBounds();
-			this.canvas.style.cursor = (this.inCropper || this.isMoving)  ? "move" : (this.inDragger || this.isResizing) ? "se-resize" : "";
+			this.canvas.style.cursor = (this.inDragger || this.isResizing) ? this._getDraggerCursor() : (this.inCropper || this.isMoving)  ? "move" : "";
 			this.isMoving ? this._move() : this.isResizing ? this._resize() : null;
 		}else if(e.type == "mousedown")
 		{
@@ -205,10 +212,50 @@
 			this.cropStartTop = this.cropTop;
 			this.cropStartWidth = this.cropViewWidth;
 			this.cropStartHeight = this.cropViewHeight;
-			this.inCropper ? this.isMoving = true : this.inDragger ? this.isResizing = true : null;
+			this.inCropper ? this.isMoving = true : this.inDragger ? this._setResizing() : null;
 		}else if(e.type == "mouseup")
 		{
 			this.isMoving = this.isResizing = false;
+			this.resizingDragger = null;
+		}
+	}
+
+	ImageCropper.prototype._setResizing = function() {
+		this.isResizing = true;
+
+		if (this.draggers.upperLeft.inDragger) {
+			this.resizingDragger = 'upperLeft';
+		} else if (this.draggers.upperRight.inDragger) {
+			this.resizingDragger = 'upperRight';
+		} else if (this.draggers.bottomLeft.inDragger) {
+			this.resizingDragger = 'bottomLeft';
+		} else {
+			this.resizingDragger = 'bottomRight';
+		}
+	}
+
+	ImageCropper.prototype._getDraggerCursor = function() {
+		if (this.resizingDragger) {
+			switch (this.resizingDragger) {
+				case 'upperLeft':
+					return 'nw-resize';
+				case 'upperRight':
+					return 'ne-resize';
+				case 'bottomLeft':
+					return 'sw-resize';
+				default:
+					return 'se-resize';
+			}
+		}
+
+		if (this.draggers.upperLeft.inDragger) {
+			return 'nw-resize';
+		} else if (this.draggers.upperRight.inDragger) {
+			return 'ne-resize';
+		} else if (this.draggers.bottomLeft.inDragger) {
+			return 'sw-resize';
+		} else {
+			return 'se-resize';
 		}
 	}
 
@@ -217,17 +264,17 @@
 		this.inCropper = (this.mouseX >= this.cropLeft && this.mouseX <= this.cropLeft+this.cropViewWidth &&
 			this.mouseY >= this.cropTop && this.mouseY <= this.cropTop+this.cropViewHeight);
 
-		this.inDragger = (this.mouseX >= this.dragBoxConf.upperLeft.dragLeft && this.mouseX <= this.dragBoxConf.upperLeft.dragLeft+this.dragSize &&
-			this.mouseY >= this.dragBoxConf.upperLeft.dragTop && this.mouseY <= this.dragBoxConf.upperLeft.dragTop+this.dragSize) ||
-			(this.mouseX >= this.dragBoxConf.upperRight.dragLeft && this.mouseX <= this.dragBoxConf.upperRight.dragLeft+this.dragSize &&
-				this.mouseY >= this.dragBoxConf.upperRight.dragTop && this.mouseY <= this.dragBoxConf.upperRight.dragTop+this.dragSize) ||
-			(this.mouseX >= this.dragBoxConf.bottomLeft.dragLeft && this.mouseX <= this.dragBoxConf.bottomLeft.dragLeft+this.dragSize &&
-				this.mouseY >= this.dragBoxConf.bottomLeft.dragTop && this.mouseY <= this.dragBoxConf.bottomLeft.dragTop+this.dragSize) ||
-			(this.mouseX >= this.dragBoxConf.bottomRight.dragLeft && this.mouseX <= this.dragBoxConf.bottomRight.dragLeft+this.dragSize &&
-				this.mouseY >= this.dragBoxConf.bottomRight.dragTop && this.mouseY <= this.dragBoxConf.bottomRight.dragTop+this.dragSize);
-		console.log(this.mouseX);
-		console.log(this.mouseY);
-		console.log(this.dragBoxConf.upperLeft);
+		this.draggers.upperLeft.inDragger = (this.mouseX >= this.draggers.upperLeft.dragLeft && this.mouseX <= this.draggers.upperLeft.dragLeft+this.dragSize &&
+			this.mouseY >= this.draggers.upperLeft.dragTop && this.mouseY <= this.draggers.upperLeft.dragTop+this.dragSize);
+		this.draggers.upperRight.inDragger = (this.mouseX >= this.draggers.upperRight.dragLeft && this.mouseX <= this.draggers.upperRight.dragLeft+this.dragSize &&
+			this.mouseY >= this.draggers.upperRight.dragTop && this.mouseY <= this.draggers.upperRight.dragTop+this.dragSize);
+		this.draggers.bottomLeft.inDragger = (this.mouseX >= this.draggers.bottomLeft.dragLeft && this.mouseX <= this.draggers.bottomLeft.dragLeft+this.dragSize &&
+			this.mouseY >= this.draggers.bottomLeft.dragTop && this.mouseY <= this.draggers.bottomLeft.dragTop+this.dragSize);
+		this.draggers.bottomRight.inDragger = (this.mouseX >= this.draggers.bottomRight.dragLeft && this.mouseX <= this.draggers.bottomRight.dragLeft+this.dragSize &&
+			this.mouseY >= this.draggers.bottomRight.dragTop && this.mouseY <= this.draggers.bottomRight.dragTop+this.dragSize);
+
+		this.inDragger = this.draggers.upperLeft.inDragger || this.draggers.upperRight.inDragger || this.draggers.bottomLeft.inDragger
+			 || this.draggers.bottomRight.inDragger;
 
 		this.inCropper = this.inCropper && !this.inDragger;
 	}
@@ -248,13 +295,81 @@
 
 	ImageCropper.prototype._resize = function()
 	{
-		var delta = Math.min(this.mouseX - this.mouseStartX, this.mouseY - this.mouseStartY);
+		var deltaX = this.mouseX - this.mouseStartX;
+		var deltaY = this.mouseY - this.mouseStartY;
 
-		var cw = Math.max(10, this.cropStartWidth + delta);
-		var ch = Math.max(10, this.cropStartHeight + delta);
-		var cw = Math.min(cw, this.width-this.cropStartLeft-this.imageViewLeft);
-		var ch = Math.min(ch, this.height-this.cropStartTop-this.imageViewTop);
-		this.cropViewWidth = this.cropViewHeight = Math.round(Math.min(cw, ch));
+		var cw,ch;
+		var endOfXMinDrag = false,endOfYMinDrag = false;
+		var endOfXMaxDrag = false,endOfYMaxDrag = false;
+		switch (this.resizingDragger) {
+			case 'upperLeft':
+				// 处理最小缩放
+				cw = this.cropStartWidth - deltaX;
+				if (cw <= this.minLength) {
+					cw = this.minLength;
+					endOfXMinDrag = true;
+				}
+				ch = this.cropStartHeight - deltaY;
+				if (ch <= this.minLength) {
+					ch = this.minLength;
+					endOfYMinDrag = true;
+				}
+				// 处理最大缩放
+				if (cw >= this.cropStartWidth + this.cropStartLeft-this.imageViewLeft) {
+					cw = this.cropStartWidth + this.cropStartLeft-this.imageViewLeft;
+					endOfXMaxDrag = true;
+				}
+				if (ch >= this.cropStartHeight + this.cropStartTop-this.imageViewTop) {
+					ch = this.cropStartHeight + this.cropStartTop-this.imageViewTop;
+					endOfYMaxDrag = true;
+				}
+
+				// 达到最小宽高时，也需要设置起点坐标
+				endOfXMinDrag ? (this.cropLeft = this.cropStartLeft + this.cropStartWidth - this.minLength) : endOfXMaxDrag ? (this.cropLeft = this.imageViewLeft) : (this.cropLeft = this.cropStartLeft + deltaX);
+				endOfYMinDrag ? (this.cropTop = this.cropStartTop + this.cropStartHeight - this.minLength) : endOfYMaxDrag ? (this.cropTop = this.imageViewTop) : (this.cropTop = this.cropStartTop + deltaY);
+				break;
+			case 'upperRight':
+				ch = this.cropStartHeight - deltaY;
+				if (ch <= this.minLength) {
+					ch = this.minLength;
+					endOfYMinDrag = true;
+				}
+				if (ch >= this.cropStartHeight + this.cropStartTop-this.imageViewTop) {
+					ch = this.cropStartHeight + this.cropStartTop-this.imageViewTop;
+					endOfYMaxDrag = true;
+				}
+				cw = Math.max(this.minLength, this.cropStartWidth + deltaX);
+				cw = Math.min(cw, this.width-this.cropStartLeft-this.imageViewLeft);
+
+				// 达到最小宽高时，也需要设置起点坐标
+				endOfYMinDrag ? (this.cropTop = this.cropStartTop + this.cropStartHeight - this.minLength) : endOfYMaxDrag ? (this.cropTop = this.imageViewTop) : (this.cropTop = this.cropStartTop + deltaY);
+				break;
+			case 'bottomLeft':
+				cw = this.cropStartWidth - deltaX;
+				if (cw <= this.minLength) {
+					cw = this.minLength;
+					endOfXMinDrag = true;
+				}
+				if (cw >= this.cropStartWidth + this.cropStartLeft-this.imageViewLeft) {
+					cw = this.cropStartWidth + this.cropStartLeft-this.imageViewLeft;
+					endOfXMaxDrag = true;
+				}
+
+				ch = Math.max(this.minLength, this.cropStartHeight + deltaY);
+				ch = Math.min(ch, this.height-this.cropStartTop-this.imageViewTop);
+
+				// 达到最小宽高时，也需要设置起点坐标
+				endOfXMinDrag ? (this.cropLeft = this.cropStartLeft + this.cropStartWidth - this.minLength) : endOfXMaxDrag ? (this.cropLeft = this.imageViewLeft) : (this.cropLeft = this.cropStartLeft + deltaX);
+				break;
+			default:
+				cw = Math.max(this.minLength, this.cropStartWidth + deltaX);
+				ch = Math.max(this.minLength, this.cropStartHeight + deltaY);
+				cw = Math.min(cw, this.width-this.cropStartLeft-this.imageViewLeft);
+				ch = Math.min(ch, this.height-this.cropStartTop-this.imageViewTop);
+		}
+
+		this.cropViewWidth = cw;
+		this.cropViewHeight = ch;
 
 		this._calcDragCordin();
 		this._update();
@@ -340,10 +455,10 @@
 
 	ImageCropper.prototype._drawDragger = function()
 	{
-		this._drawRect(this.dragBoxConf.upperLeft.dragLeft, this.dragBoxConf.upperLeft.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
-		this._drawRect(this.dragBoxConf.upperRight.dragLeft, this.dragBoxConf.upperRight.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
-		this._drawRect(this.dragBoxConf.bottomLeft.dragLeft, this.dragBoxConf.bottomLeft.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
-		this._drawRect(this.dragBoxConf.bottomRight.dragLeft, this.dragBoxConf.bottomRight.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
+		this._drawRect(this.draggers.upperLeft.dragLeft, this.draggers.upperLeft.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
+		this._drawRect(this.draggers.upperRight.dragLeft, this.draggers.upperRight.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
+		this._drawRect(this.draggers.bottomLeft.dragLeft, this.draggers.bottomLeft.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
+		this._drawRect(this.draggers.bottomRight.dragLeft, this.draggers.bottomRight.dragTop, this.dragSize, this.dragSize, null, this.dragColor, null);
 	}
 
 	ImageCropper.prototype._drawRect = function(x, y, width, height, color, border, alpha)
